@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
-<meta name="app-version" content="2026-10-15-v30">
+<meta name="app-version" content="2026-10-15-v31">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
@@ -80,6 +80,13 @@
 [data-theme="dark"] select,
 [data-theme="dark"] .search{background:#1e293b;color:#e2e8f0;border-color:#475569}
 [data-theme="dark"] input[type="checkbox"]{accent-color:var(--accent2)}
+/* [DARK-CONTRAST-2] Abas secundárias (.tab) + reforço de .chip/.editorTab no modo escuro (v31) */
+[data-theme="dark"] .tab{background:#1e293b!important;color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;border-color:#475569!important}
+[data-theme="dark"] .tab:hover{background:#334155!important;border-color:#64748b!important}
+[data-theme="dark"] .tab.active{background:var(--accent)!important;color:#04211e!important;-webkit-text-fill-color:#04211e!important;border-color:var(--accent)!important}
+[data-theme="dark"] .chip:not(.active),
+[data-theme="dark"] .editorTab:not(.active){background:#1e293b!important;color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;border-color:#475569!important}
+[data-theme="dark"] .chip.active{background:var(--accent)!important;color:#04211e!important;-webkit-text-fill-color:#04211e!important}
 *{box-sizing:border-box}
 html{overflow-x:hidden} /* [DETAIL-OFFSET] evita barra de scroll horizontal com o painel fixo */
 body{margin:0;font:14px/1.45 Inter,Segoe UI,Arial,sans-serif;color:var(--text);background:var(--bg)}
@@ -399,7 +406,7 @@ const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
 // [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
-const APP_VERSION='2026-10-15-v30';
+const APP_VERSION='2026-10-15-v31';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
