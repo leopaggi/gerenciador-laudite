@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
+<meta name="app-version" content="2026-10-15-v30">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
@@ -300,6 +302,7 @@ textarea{min-height:90px;resize:vertical}
     <button class="sideBtn" id="deleteFolderBtn">🗑 Excluir pasta</button>
     <button class="sideBtn" id="resetBtn">↺ Restaurar original</button>
     <button class="sideBtn" id="migrateBtn" style="grid-column:1/-1">🔀 Reorganizar por sistema (migração)</button>
+    <button class="sideBtn" id="updateBtn" style="grid-column:1/-1" title="Verificar se há uma versão nova publicada">🔄 Atualizar</button>
   </div>
   <div class="small" style="color:#a9d9d2;margin:4px 4px 8px">PASTAS: arraste pela faixa superior/inferior de uma pasta irmã para reordenar; solte no centro para mover para dentro. AUTOTEXTOS: arraste sobre outro autotexto, acima/abaixo da metade, para mudar a ordem.</div><div id="tree"></div>
 </aside>
@@ -395,6 +398,8 @@ try {
 const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
+// [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
+const APP_VERSION='2026-10-15-v30';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
@@ -1745,6 +1750,46 @@ cloudBoot();
 // Fallback de segurança: se o Firestore não ficar pronto em 10s, indica offline (app continua com localStorage).
 setTimeout(()=>{if(!cloud.ready)setCloudStatus('offline')},10000);
 // [FIRESTORE-SYNC-END]
+// [CACHE-BUST-BEGIN] Detecta nova versão publicada e recarrega com ?v=timestamp (anti-cache).
+const UPDATE_MIN_INTERVAL=10000; // não verifica/recarrega mais de 1x a cada 10s
+let _lastUpdateCheck=0;
+function _isEditingNow(){
+  try{
+    if(document.querySelector('.modal.show'))return true;
+    const ae=document.activeElement;
+    if(ae && (ae.isContentEditable || ae.tagName==='INPUT' || ae.tagName==='TEXTAREA' || ae.tagName==='SELECT'))return true;
+    if(typeof creatingNew!=='undefined' && creatingNew)return true;
+  }catch(e){}
+  return false;
+}
+function checkForUpdate(opts){
+  opts=opts||{}; const manual=!!opts.manual; const now=Date.now();
+  if(!manual && now-_lastUpdateCheck<UPDATE_MIN_INTERVAL)return;
+  _lastUpdateCheck=now;
+  console.log('[UPDATE] Versão atual: '+APP_VERSION);
+  fetch(location.pathname,{cache:'no-store'})
+    .then(r=>r.text())
+    .then(txt=>{
+      const m=txt.match(/<meta\s+name=["']app-version["']\s+content=["']([^"']+)["']/i);
+      const remote=m?m[1]:null;
+      console.log('[UPDATE] Versão remota: '+(remote||'(desconhecida)'));
+      if(remote && remote!==APP_VERSION){
+        if(!manual && _isEditingNow()){ console.log('[UPDATE] Edição em andamento — adiando recarga'); return; }
+        console.log('[UPDATE] Recarregando...');
+        location.replace(location.pathname+'?v='+Date.now());
+      }else{
+        console.log('[UPDATE] Sem atualização');
+        if(manual)toast('Você já está na versão mais recente');
+      }
+    })
+    .catch(()=>{ if(manual)toast('Não foi possível verificar (offline)'); }); // [CACHE-BUST] fetch falhou: ignora silenciosamente
+}
+function autoCheckVersion(){
+  try{ if(/[?&]v=/.test(location.search))return; checkForUpdate(); }catch(e){} // loop protetor: já tem ?v=
+}
+{const _ub=document.getElementById('updateBtn'); if(_ub)_ub.onclick=()=>checkForUpdate({manual:true});}
+autoCheckVersion();
+// [CACHE-BUST-END]
 renderAll();
 // [DARK-MODE] Aplica o tema salvo e liga o botão de alternância.
 applyTheme(localStorage.getItem(THEME_KEY)||'light');
