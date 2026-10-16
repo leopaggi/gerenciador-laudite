@@ -57,6 +57,27 @@
 [data-theme="dark"] .card.view-compact.selected{background:#134e4a}
 [data-theme="dark"] .preview{color:#cbd5e1}
 [data-theme="dark"] .path{color:var(--muted)}
+/* [DARK-CONTRAST] Correções de contraste no modo escuro (v29) */
+[data-theme="dark"] .phraseEditor{background:#1e293b;color:#e2e8f0;border-color:#475569}
+[data-theme="dark"] .phraseEditor:focus{outline:2px solid var(--accent2)}
+[data-theme="dark"] [contenteditable="true"],
+[data-theme="dark"] .phraseEditor *{color:#e2e8f0}
+[data-theme="dark"] .chipbar .label,
+[data-theme="dark"] .edit-section-title,
+[data-theme="dark"] .small{color:#cbd5e1}
+[data-theme="dark"] .chip:not(.active){background:#334155;color:#e2e8f0;border-color:#475569}
+[data-theme="dark"] .chip:not(.active):hover{background:#475569}
+[data-theme="dark"] .btn:not(.primary):not(.danger){background:#1e293b;color:#e2e8f0;border-color:#475569}
+[data-theme="dark"] .btn:not(.primary):not(.danger):hover{background:#334155}
+[data-theme="dark"] #statusBar{color:#cbd5e1}
+[data-theme="dark"] #statusBar b{color:#f1f5f9}
+[data-theme="dark"] .sidebar .small,
+[data-theme="dark"] .sidebar .dragHint{color:#cbd5e1}
+[data-theme="dark"] .path{color:#94a3b8}
+[data-theme="dark"] .preview{color:#cbd5e1}
+[data-theme="dark"] select,
+[data-theme="dark"] .search{background:#1e293b;color:#e2e8f0;border-color:#475569}
+[data-theme="dark"] input[type="checkbox"]{accent-color:var(--accent2)}
 *{box-sizing:border-box}
 html{overflow-x:hidden} /* [DETAIL-OFFSET] evita barra de scroll horizontal com o painel fixo */
 body{margin:0;font:14px/1.45 Inter,Segoe UI,Arial,sans-serif;color:var(--text);background:var(--bg)}
