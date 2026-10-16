@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
-<meta name="app-version" content="2026-10-15-v31">
+<meta name="app-version" content="2026-10-15-v32">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
@@ -406,7 +406,7 @@ const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
 // [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
-const APP_VERSION='2026-10-15-v31';
+const APP_VERSION='2026-10-15-v32';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
@@ -718,6 +718,41 @@ function cleanDuplicateFolders(){
   try{console.log('[FOLDER-DEDUP] manual: '+rep.removedFolders.length+' pasta(s) removida(s), '+rep.remappedItems+' item(ns) remapeado(s).',rep);}catch(e){}
   return rep;
 }
+// [MERGE-DUP-FOLDERS] Mapa curto -> longo (nomes canônicos do ATLAS_STRUCTURE). (v32)
+const FOLDER_ALIASES={
+  'Abdômen Superior / alças intestinais':'Abdômen Superior / Intestino / alças intestinais',
+  'Abdômen Superior / vias biliares':'Abdômen Superior / Vesícula biliar / vias biliares',
+  'Neurorradiologia / meninges':'Neurorradiologia / Extra-axial / meninges',
+  'Neurorradiologia / cerebelo':'Neurorradiologia / Fossa posterior / cerebelo',
+  'Pelve Masculina / escroto':'Pelve Masculina / Períneo / escroto'
+};
+// [MERGE-DUP-FOLDERS] Mescla pastas curtas (fantasma) nas canônicas longas: remapeia os itens
+// para a pasta longa e remove a pasta curta de folders/folderOrder. Preserva a posição das
+// pastas longas já existentes (não reordena). NÃO toca em '(a classificar)', '(Raiz)' nem
+// '0 - Complemento'. Muta `s` e devolve {mergedFolders, remappedItems}.
+function _mergeDuplicateFolders(s){
+  const PROTECTED=new Set(['(a classificar)','(Raiz)','0 - Complemento']);
+  const isProtected=f=>PROTECTED.has(String(f))||PROTECTED.has(_lastSeg(f));
+  let remappedItems=0;
+  const mergedFolders=[];
+  Object.keys(FOLDER_ALIASES).forEach(from=>{
+    const to=FOLDER_ALIASES[from];
+    if(isProtected(from)||isProtected(to))return;
+    const had=(s.folders||[]).includes(from);
+    // 1) Remapeia os itens da pasta curta para a longa (nunca perde itens).
+    (s.items||[]).forEach(x=>{ if(x._folderPath===from){x._folderPath=to;remappedItems++;} });
+    // 2) Garante a pasta canônica (sem alterar a ordem caso já exista).
+    if(!(s.folders||[]).includes(to))s.folders.push(to);
+    if(!(s.folderOrder||[]).includes(to))s.folderOrder.push(to);
+    // 3) Remove a pasta curta de folders/folderOrder.
+    s.folders=(s.folders||[]).filter(f=>f!==from);
+    s.folderOrder=(s.folderOrder||[]).filter(f=>f!==from);
+    if(had)mergedFolders.push(from);
+  });
+  s.folders=[...new Set(s.folders)];
+  s.folderOrder=[...new Set(s.folderOrder)].filter(f=>s.folders.includes(f));
+  return {mergedFolders,remappedItems};
+}
 let _incrementalApplied=false;
 let _dedupeReport=null;          // [FOLDER-DEDUP] relatório da migração v20→v21
 let _foldersDedupedNow=false;    // [FOLDER-DEDUP] sinaliza limpeza executada neste boot
@@ -791,6 +826,12 @@ function loadState(){
   if(s.migrated && !s.mamoMigrated){ mamoReclassify(s.items); s.mamoMigrated=true; _incrementalApplied=true; }
   // [FOLDER-DEDUP] Migração incremental única v20→v21: mescla pastas duplicadas/órfãs e remove.
   if(s.migrated && !s.foldersDeduped){ _dedupeReport=_cleanDuplicateFolders(s); s.foldersDeduped=true; _foldersDedupedNow=true; _incrementalApplied=true; }
+  // [MERGE-DUP-FOLDERS] Migração incremental única v31→v32: mescla pastas fantasma nas canônicas longas.
+  if(s.migrated && !s.duplicateFoldersMerged){
+    const _mrep=_mergeDuplicateFolders(s);
+    s.duplicateFoldersMerged=true; _incrementalApplied=true;
+    try{console.log('[Laudite] '+_mrep.mergedFolders.length+' pastas mescladas, '+_mrep.remappedItems+' itens remapeados');}catch(e){}
+  }
   return s;
 }
 function persist(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); try{scheduleCloudSave()}catch(e){}} // [FIRESTORE-SYNC] agenda backup na nuvem (debounce)
