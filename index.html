@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
-<meta name="app-version" content="2026-11-07-v34">
+<meta name="app-version" content="2026-11-07-v35">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
@@ -284,8 +284,19 @@ textarea{min-height:90px;resize:vertical}
   letter-spacing: .8px;
   color: var(--muted);
   margin: 0 0 10px 0;
-  padding: 0;
+  padding: 4px 0;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
+.edit-section-title:hover { color: var(--accent); }
+/* [SECTION-COLLAPSE] Seções recolhíveis (Conteúdo/Geral/Campos interativos): estado persiste entre autotextos. */
+.secChev { display: inline-block; font-size: 10px; transition: transform .15s; color: var(--muted); }
+.edit-section.collapsed .edit-section-title { margin-bottom: 0; }
+.edit-section.collapsed .secChev { transform: rotate(-90deg); }
+.edit-section.collapsed .edit-section-body { display: none; }
 .edit-actions {
   display: flex;
   gap: 8px;
@@ -416,7 +427,7 @@ const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
 // [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
-const APP_VERSION='2026-11-07-v34';
+const APP_VERSION='2026-11-07-v35';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
@@ -1335,6 +1346,26 @@ function syncDetailResizeHandle(){
 })();
 function renderAll(){renderTree();renderChips();renderTabs();updateMigrateBtn();renderList();if(selectedId||creatingNew)renderDetail();try{updateDetailOffset()}catch(e){}}
 
+// [SECTION-COLLAPSE] Recolher/expandir as seções "Conteúdo"/"Geral"/"Campos interativos" do painel de edição.
+// O estado é global (por chave de seção, não por autotexto): ao recolher numa lesão, continua recolhido ao trocar de item.
+const EDIT_SECTION_COLLAPSE_KEY='laudite-edit-section-collapsed';
+function getEditSectionCollapseState(){try{return JSON.parse(localStorage.getItem(EDIT_SECTION_COLLAPSE_KEY))||{}}catch(e){return{}}}
+function isEditSectionCollapsed(key){return !!getEditSectionCollapseState()[key]}
+function setEditSectionCollapsed(key,collapsed){
+  const st=getEditSectionCollapseState();
+  if(collapsed)st[key]=true;else delete st[key];
+  try{localStorage.setItem(EDIT_SECTION_COLLAPSE_KEY,JSON.stringify(st))}catch(e){}
+}
+function renderEditSection(key,label,bodyId){
+  const collapsed=isEditSectionCollapsed(key);
+  return `<div class="edit-section${collapsed?' collapsed':''}" data-sec="${key}"><h3 class="edit-section-title"><span class="secChev">▾</span>${esc(label)}</h3><div id="${bodyId}" class="edit-section-body"></div></div>`;
+}
+function toggleEditSection(sec){
+  if(!sec)return;
+  const collapsed=sec.classList.toggle('collapsed');
+  setEditSectionCollapsed(sec.dataset.sec,collapsed);
+}
+
 function renderDetail(){
   const x=creatingNew?draftItem:itemById(selectedId), d=document.getElementById('detail'); if(!x){d.innerHTML='<div class="empty">Selecione um autotexto.</div>';return}
   // [ATLAS-MIGRATION] Modo criação: mesma UI de abas, com botão "Salvar novo" na aba "Editar".
@@ -1352,15 +1383,16 @@ function renderDetail(){
     :`<div class="edit-actions"><button class="btn primary" id="saveAll">Salvar alterações locais</button><button class="btn" id="copyText">Copiar texto</button></div>`;
   d.innerHTML=head+`<div class="detailBody">
       <section class="panel active" data-panel="edit">
-        <div class="edit-section"><h3 class="edit-section-title">Conteúdo</h3><div id="editContentSection"></div></div>
-        <div class="edit-section"><h3 class="edit-section-title">Geral</h3><div id="editBasicSection"></div></div>
-        <div class="edit-section"><h3 class="edit-section-title">Campos interativos</h3><div id="editFieldsSection"></div></div>
+        ${renderEditSection('content','Conteúdo','editContentSection')}
+        ${renderEditSection('basic','Geral','editBasicSection')}
+        ${renderEditSection('fields','Campos interativos','editFieldsSection')}
         ${actions}
       </section>
       <section class="panel" data-panel="ai"></section>
       <section class="panel" data-panel="advanced"></section>
     </div>`;
   d.querySelectorAll('.editorTab').forEach(b=>b.onclick=()=>{d.querySelectorAll('.editorTab').forEach(z=>z.classList.toggle('active',z===b));d.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.dataset.panel===b.dataset.p))});
+  d.querySelectorAll('.edit-section-title').forEach(h=>h.onclick=()=>toggleEditSection(h.closest('.edit-section')));
   renderBasic(x);renderContent(x);renderFields(x);renderAI(x);renderAdvanced(x);
   const sa=d.querySelector('#saveAll');if(sa)sa.onclick=saveAllEdits;
   const ct=d.querySelector('#copyText');if(ct)ct.onclick=()=>navigator.clipboard.writeText(itemText(x));
