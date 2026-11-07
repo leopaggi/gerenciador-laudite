@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
-<meta name="app-version" content="2026-10-15-v32">
+<meta name="app-version" content="2026-11-07-v33">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
@@ -175,7 +175,8 @@ textarea{min-height:90px;resize:vertical}
 .phraseEditor{border:1px solid var(--line);border-radius:10px;padding:12px;min-height:140px;background:#fcfeff;margin-bottom:10px}
 .phraseEditor:focus{outline:2px solid #99f6e4}
 .ruleCard,.fieldCard{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:#fbfdff}
-.optionRow{display:grid;grid-template-columns:1fr 2fr auto;gap:6px;margin:6px 0}
+.optionRow{display:grid;grid-template-columns:1fr 2fr auto;gap:6px;margin:6px 0;align-items:start}
+.optionRow textarea.oText{min-height:36px;height:36px;resize:none;overflow:hidden;line-height:1.4;font-family:inherit;font-size:inherit}
 .small{font-size:12px;color:var(--muted)}
 .raw{min-height:320px;font:12px/1.45 Consolas,monospace;background:#0f172a;color:#e2e8f0}
 .empty{background:white;border:1px dashed var(--line);border-radius:12px;padding:32px;text-align:center;color:var(--muted)}
@@ -406,7 +407,7 @@ const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
 // [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
-const APP_VERSION='2026-10-15-v32';
+const APP_VERSION='2026-11-07-v33';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
@@ -1442,11 +1443,22 @@ function renderFields(x){
       ${opt.delimiter!==undefined?`<label>Separador</label><input class="fieldInput fDelim" value="${esc(opt.delimiter||'')}"><label>Separador final</label><input class="fieldInput fDelimFinal" value="${esc(opt.delimiterFinal||'')}">`:''}
     </div>
     <div><b>Opções</b></div>
-    <div class="opts">${list.map((it,oi)=>`<div class="optionRow" data-oi="${oi}"><input class="fieldInput oName" value="${esc(it.name||'')}"><input class="fieldInput oText" value="${esc(it.text||'')}"><button class="btn danger delOpt">×</button></div>`).join('')}</div>
+    <div class="opts">${list.map((it,oi)=>`<div class="optionRow" data-oi="${oi}"><input class="fieldInput oName" value="${esc(it.name||'')}"><textarea class="fieldInput oText" rows="1">${esc(it.text||'')}</textarea><button class="btn danger delOpt">×</button></div>`).join('')}</div>
     <button class="btn addOpt">＋ opção</button>
   </div>`}).join('');
-  p.querySelectorAll('.addOpt').forEach((b,idx)=>b.onclick=()=>{const c=b.closest('.fieldCard').querySelector('.opts');const row=document.createElement('div');row.className='optionRow';row.innerHTML='<input class="fieldInput oName" placeholder="Nome"><input class="fieldInput oText" placeholder="Texto"><button class="btn danger delOpt">×</button>';row.querySelector('.delOpt').onclick=()=>row.remove();c.appendChild(row)});
+  // [OPT-TEXT-AUTOGROW] Textarea de texto da opção: sempre exibe o conteúdo inteiro, quebrando linha conforme a largura disponível.
+  p.querySelectorAll('.optionRow textarea.oText').forEach(autoGrowOptText);
+  p.querySelectorAll('.addOpt').forEach((b,idx)=>b.onclick=()=>{const c=b.closest('.fieldCard').querySelector('.opts');const row=document.createElement('div');row.className='optionRow';row.innerHTML='<input class="fieldInput oName" placeholder="Nome"><textarea class="fieldInput oText" rows="1" placeholder="Texto"></textarea><button class="btn danger delOpt">×</button>';row.querySelector('.delOpt').onclick=()=>row.remove();autoGrowOptText(row.querySelector('.oText'));c.appendChild(row)});
   p.querySelectorAll('.delOpt').forEach(b=>b.onclick=()=>b.closest('.optionRow').remove());
+}
+// [OPT-TEXT-AUTOGROW] Ajusta a altura do textarea ao conteúdo (sem scroll/corte) e reajusta ao digitar ou redimensionar a janela.
+function autoGrowOptText(ta){
+  if(!ta||ta._autoGrowBound)return;
+  ta._autoGrowBound=true;
+  const fit=()=>{ta.style.height='auto';ta.style.height=Math.max(36,ta.scrollHeight)+'px'};
+  ta.addEventListener('input',fit);
+  window.addEventListener('resize',fit);
+  requestAnimationFrame(fit);
 }
 function renderAI(x){
   const p=document.querySelector('[data-panel="ai"]'), rules=aiRules(x);
