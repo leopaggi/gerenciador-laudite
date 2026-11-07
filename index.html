@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
-<meta name="app-version" content="2026-11-07-v37">
+<meta name="app-version" content="2026-11-07-v38">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
@@ -183,6 +183,14 @@ textarea{min-height:90px;resize:vertical}
 .phraseEditor{border:1px solid var(--line);border-radius:10px;padding:12px;min-height:140px;background:#fcfeff;margin-bottom:10px}
 .phraseEditor:focus{outline:2px solid #99f6e4}
 .ruleCard,.fieldCard{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:#fbfdff}
+/* [FIELDCARD-COLLAPSE] Cabeçalho compacto (Nome/ID/Subtipo numa linha só); clique expande os inputs editáveis. */
+.fieldCardHead{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;cursor:pointer;user-select:none;overflow:hidden}
+.fieldCardHead b{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fieldCardHead .fcId{margin-left:auto;padding-left:8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fieldCardHead .fcChev{flex:0 0 auto;font-size:10px;color:var(--muted);transition:transform .15s}
+.fieldCard.collapsed .fcChev{transform:rotate(-90deg)}
+.fieldCard.collapsed .metaGrid{display:none}
+.fieldCard .metaGrid{margin-top:10px}
 .optionRow{display:grid;grid-template-columns:1fr 2fr auto;gap:6px;margin:6px 0;align-items:start}
 .optionRow textarea.oText{min-height:36px;height:36px;resize:none;overflow:hidden;line-height:1.4;font-family:inherit;font-size:inherit}
 .small{font-size:12px;color:var(--muted)}
@@ -427,7 +435,7 @@ const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
 // [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
-const APP_VERSION='2026-11-07-v37';
+const APP_VERSION='2026-11-07-v38';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
@@ -1549,19 +1557,20 @@ function renderFields(x){
   const p=document.getElementById('editFieldsSection');let chunks=[];
   phraseActions(x).forEach(z=>(z.a.option?.fields||[]).forEach((f,fi)=>chunks.push({z,f,fi})));
   if(!chunks.length){p.innerHTML='<div class="empty">Nenhum campo interativo estruturado.</div>';return}
-  p.innerHTML=chunks.map((o,idx)=>{const f=o.f,opt=f.option||{}, list=opt.list||[];return `<div class="fieldCard" data-idx="${idx}">
-    <div class="row"><b>${esc(f.name||'(sem nome)')}</b><span class="badge">${esc(f.type||'')}</span><span class="badge">${esc(f.subtype||'')}</span></div>
-    <div class="small">ID: ${esc(f.id||'')}</div>
-    <div class="metaGrid" style="margin-top:8px">
+  p.innerHTML=chunks.map((o,idx)=>{const f=o.f,opt=f.option||{}, list=opt.list||[];return `<div class="fieldCard collapsed" data-idx="${idx}">
+    <div class="fieldCardHead"><b>${esc(f.name||'(sem nome)')}</b><span class="badge">${esc(f.type||'')}</span><span class="badge">${esc(f.subtype||'')}</span><span class="small fcId">ID: ${esc(f.id||'')}</span><span class="secChev fcChev">▾</span></div>
+    <div class="metaGrid">
       <label>Nome</label><input class="fieldInput fName" value="${esc(f.name||'')}">
       <label>ID</label><input class="fieldInput fId" value="${esc(f.id||'')}">
       <label>Subtipo</label><input class="fieldInput fSubtype" value="${esc(f.subtype||'')}">
       ${opt.delimiter!==undefined?`<label>Separador</label><input class="fieldInput fDelim" value="${esc(opt.delimiter||'')}"><label>Separador final</label><input class="fieldInput fDelimFinal" value="${esc(opt.delimiterFinal||'')}">`:''}
     </div>
-    <div><b>Opções</b></div>
+    <div style="margin-top:10px"><b>Opções</b></div>
     <div class="opts">${list.map((it,oi)=>`<div class="optionRow" data-oi="${oi}"><input class="fieldInput oName" value="${esc(it.name||'')}"><textarea class="fieldInput oText" rows="1">${esc(it.text||'')}</textarea><button class="btn danger delOpt">×</button></div>`).join('')}</div>
     <button class="btn addOpt">＋ opção</button>
   </div>`}).join('');
+  // [FIELDCARD-COLLAPSE] Clique no cabeçalho compacto expande/recolhe Nome/ID/Subtipo/Separador deste campo.
+  p.querySelectorAll('.fieldCardHead').forEach(h=>h.onclick=()=>h.closest('.fieldCard').classList.toggle('collapsed'));
   // [OPT-TEXT-AUTOGROW] Textarea de texto da opção: sempre exibe o conteúdo inteiro, quebrando linha conforme a largura disponível.
   p.querySelectorAll('.optionRow textarea.oText').forEach(autoGrowOptText);
   p.querySelectorAll('.addOpt').forEach((b,idx)=>b.onclick=()=>{const c=b.closest('.fieldCard').querySelector('.opts');const row=document.createElement('div');row.className='optionRow';row.innerHTML='<input class="fieldInput oName" placeholder="Nome"><textarea class="fieldInput oText" rows="1" placeholder="Texto"></textarea><button class="btn danger delOpt">×</button>';row.querySelector('.delOpt').onclick=()=>row.remove();autoGrowOptText(row.querySelector('.oText'));c.appendChild(row)});
