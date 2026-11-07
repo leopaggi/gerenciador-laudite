@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
-<meta name="app-version" content="2026-11-07-v35">
+<meta name="app-version" content="2026-11-07-v36">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
@@ -427,7 +427,7 @@ const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
 // [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
-const APP_VERSION='2026-11-07-v35';
+const APP_VERSION='2026-11-07-v36';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
@@ -1630,6 +1630,10 @@ function renderTagEditor(host,x){
 function toggleTag(x,tag){
   if(!tag)return;
   if(creatingNew){
+    // [FIX-DRAFT-WIPE] Antes de re-renderizar o painel (renderDetail reconstrói tudo a partir de x),
+    // precisamos primeiro gravar em x o que já foi digitado em Nome/Conteúdo/Campos, senão esse
+    // texto ainda não salvo no draft é perdido ao clicar numa tag de modalidade.
+    gatherMeta(x);gatherContent(x);gatherFields(x);
     x._tags=x._tags||[];const i=x._tags.indexOf(tag);i<0?x._tags.push(tag):x._tags.splice(i,1);
     renderDetail();renderChips();return;
   }
