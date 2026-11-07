@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
-<meta name="app-version" content="2026-11-07-v36">
+<meta name="app-version" content="2026-11-07-v37">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
@@ -427,7 +427,7 @@ const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
 // [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
-const APP_VERSION='2026-11-07-v36';
+const APP_VERSION='2026-11-07-v37';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
@@ -1364,6 +1364,12 @@ function toggleEditSection(sec){
   if(!sec)return;
   const collapsed=sec.classList.toggle('collapsed');
   setEditSectionCollapsed(sec.dataset.sec,collapsed);
+  // [FIX-COLLAPSE-AUTOGROW] Se a seção estava recolhida (display:none) quando os textareas de
+  // "Opções" foram criados, o ajuste automático de altura mediu scrollHeight=0 e travou em 36px.
+  // Ao reabrir a seção, precisamos remedir agora que ela está visível, senão o texto fica cortado.
+  if(!collapsed){
+    sec.querySelectorAll('textarea.oText').forEach(ta=>{ta.style.height='auto';ta.style.height=Math.max(36,ta.scrollHeight)+'px'});
+  }
 }
 
 function renderDetail(){
