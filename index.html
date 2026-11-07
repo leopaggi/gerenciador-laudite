@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
-<meta name="app-version" content="2026-11-07-v33">
+<meta name="app-version" content="2026-11-07-v34">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
  --bg:#f4f7f9; --panel:#fff; --line:#d9e2e7; --text:#182128; --muted:#687782;
  --accent:#0f766e; --accent2:#14b8a6; --soft:#e8f7f4; --warn:#b45309; --danger:#b91c1c;
- --blue:#0369a1; --shadow:0 10px 28px rgba(15,23,42,.10)
+ --blue:#0369a1; --shadow:0 10px 28px rgba(15,23,42,.10);
+ --detail-w:470px /* [DETAIL-RESIZE] largura do painel lateral, ajustável pelo usuário (arrastando) e persistida */
 }
 /* [DARK-MODE] Tema escuro: reusa as variáveis e cobre as superfícies com cores fixas. */
 [data-theme="dark"]{
@@ -134,7 +135,7 @@ input::placeholder,textarea::placeholder{color:#7b8a96;-webkit-text-fill-color:#
 /* [UI-CLEANUP] Barra de status unificada (stats + ações de seleção) */
 #statusBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;font-size:12px;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:8px;margin-top:6px;min-height:32px}
 #statusBar .btn{padding:4px 8px;font-size:12px}
-.content{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;padding:14px 16px;padding-right:490px}
+.content{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;padding:14px 16px;padding-right:calc(var(--detail-w) + 20px)}
 .list{display:flex;flex-direction:column;gap:8px;min-width:0}
 .card{background:white;border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;grid-template-columns:auto 1fr;gap:10px;cursor:pointer}
 .card:hover{border-color:#9fb0bd}.card.selected{border-color:var(--accent2);box-shadow:0 0 0 2px rgba(20,184,166,.12)}
@@ -164,7 +165,14 @@ input::placeholder,textarea::placeholder{color:#7b8a96;-webkit-text-fill-color:#
 .alt-site-chip button:hover{color:#dc2626}
 .alt-site-add{background:transparent;border:1px dashed var(--line);border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--muted)}
 .alt-site-add:hover{border-color:var(--accent);color:var(--accent)}
-.detail{position:fixed;right:16px;width:470px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);max-height:calc(100vh - 300px);display:flex;flex-direction:column;overflow:hidden;z-index:25}
+.detail{position:fixed;right:16px;width:var(--detail-w);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);max-height:calc(100vh - 300px);display:flex;flex-direction:column;overflow:hidden;z-index:25}
+/* [DETAIL-RESIZE] Alça de arraste na borda esquerda do painel lateral, para redimensionar sua largura. */
+.detailResize{position:fixed;top:0;height:0;width:12px;cursor:col-resize;z-index:26;display:none;touch-action:none}
+.detailResize::before{content:'';position:absolute;left:5px;top:8px;bottom:8px;width:2px;border-radius:2px;background:var(--line);transition:background .15s,width .15s}
+.detailResize:hover::before,.detailResize.dragging::before{background:var(--accent2);width:3px;left:4.5px}
+[data-theme="dark"] .detailResize::before{background:#334155}
+body.detailResizing{cursor:col-resize!important;user-select:none}
+body.detailResizing .detailResize::before{background:var(--accent2)}
 .detailHead{position:sticky;top:0;flex:0 0 auto;background:#fff;z-index:5;border-bottom:1px solid var(--line);padding:14px}
 .detailBody{flex:1 1 auto;min-height:0;overflow-y:auto;padding:14px}.detail h2{margin:0;font-size:19px}
 .editorTabs{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}.editorTab{border:1px solid var(--line);background:white;border-radius:8px;padding:6px 8px;cursor:pointer}.editorTab.active{background:var(--soft);border-color:#7dd3c7;color:#065f57}
@@ -350,6 +358,7 @@ textarea{min-height:90px;resize:vertical}
   <div class="content">
     <section class="list" id="list"></section>
     <aside class="detail" id="detail"><div class="empty">Selecione um autotexto para editar.</div></aside>
+    <div class="detailResize" id="detailResize" title="Arraste para ajustar a largura do painel"></div>
   </div>
 </main>
 </div>
@@ -407,7 +416,7 @@ const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
 // [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
-const APP_VERSION='2026-11-07-v33';
+const APP_VERSION='2026-11-07-v34';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
@@ -1254,7 +1263,76 @@ function updateDetailOffset(){
   const h=(top.offsetHeight||0)+12;                                        // gap de 12px
   d.style.top=h+'px';
   d.style.maxHeight='calc(100vh - '+(h+8)+'px)';                           // 8px de margem inferior
+  syncDetailResizeHandle();
 }
+// [DETAIL-RESIZE] Largura ajustável do painel lateral: arraste a alça na borda esquerda.
+const DETAIL_W_KEY='laudite-detail-width';
+const DETAIL_W_MIN=340, DETAIL_W_MAX=900;
+function clampDetailWidth(px){
+  const maxAvail=Math.max(DETAIL_W_MIN,window.innerWidth-380); // deixa espaço mínimo pra lista
+  return Math.round(Math.min(DETAIL_W_MAX,maxAvail,Math.max(DETAIL_W_MIN,px)));
+}
+function setDetailWidth(px,persist){
+  const w=clampDetailWidth(px);
+  document.documentElement.style.setProperty('--detail-w',w+'px');
+  if(persist)try{localStorage.setItem(DETAIL_W_KEY,String(w))}catch(e){}
+  return w;
+}
+function syncDetailResizeHandle(){
+  const d=document.getElementById('detail'), h=document.getElementById('detailResize');
+  if(!d||!h)return;
+  if(window.innerWidth<=1150){h.style.display='none';return}
+  const r=d.getBoundingClientRect();
+  h.style.display='block';
+  h.style.top=r.top+'px';
+  h.style.height=r.height+'px';
+  h.style.left=(r.left-6)+'px';
+}
+(function initDetailResize(){
+  let saved=null;try{saved=parseInt(localStorage.getItem(DETAIL_W_KEY),10)}catch(e){}
+  if(saved)setDetailWidth(saved,false);
+  const handle=document.getElementById('detailResize');
+  if(!handle)return;
+  {
+    let startX=0,startW=0,dragging=false;
+    const onMove=(e)=>{
+      if(!dragging)return;
+      const clientX=e.touches?e.touches[0].clientX:e.clientX;
+      setDetailWidth(startW+(startX-clientX),false);
+      syncDetailResizeHandle();
+      e.preventDefault();
+    };
+    const onUp=()=>{
+      if(!dragging)return;
+      dragging=false;
+      handle.classList.remove('dragging');
+      document.body.classList.remove('detailResizing');
+      const cur=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--detail-w'))||470;
+      setDetailWidth(cur,true);
+      document.removeEventListener('pointermove',onMove);
+      document.removeEventListener('pointerup',onUp);
+    };
+    const onDown=(e)=>{
+      if(window.innerWidth<=1150)return;
+      dragging=true;startX=e.touches?e.touches[0].clientX:e.clientX;
+      startW=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--detail-w'))||470;
+      handle.classList.add('dragging');
+      document.body.classList.add('detailResizing');
+      document.addEventListener('pointermove',onMove,{passive:false});
+      document.addEventListener('pointerup',onUp);
+      e.preventDefault();
+    };
+    handle.addEventListener('pointerdown',onDown);
+    handle.addEventListener('dblclick',()=>{setDetailWidth(470,true);syncDetailResizeHandle()}); // reset rápido
+    try{new ResizeObserver(()=>syncDetailResizeHandle()).observe(document.getElementById('detail'))}catch(e){}
+    window.addEventListener('resize',()=>{
+      const cur=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--detail-w'))||470;
+      setDetailWidth(cur,false); // apenas reclampa aos limites da nova largura de tela
+      syncDetailResizeHandle();
+    });
+    syncDetailResizeHandle();
+  }
+})();
 function renderAll(){renderTree();renderChips();renderTabs();updateMigrateBtn();renderList();if(selectedId||creatingNew)renderDetail();try{updateDetailOffset()}catch(e){}}
 
 function renderDetail(){
