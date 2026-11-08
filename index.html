@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- [CACHE-BUST] Versão publicada: usada para detectar novas versões e forçar reload sem cache (?v=timestamp). -->
-<meta name="app-version" content="2026-11-07-v38">
+<meta name="app-version" content="2026-11-08-v39">
 <title>Gerenciador de Autotextos — Laudite</title>
 <style>
 :root{
@@ -63,8 +63,10 @@
 /* [DARK-CONTRAST] Correções de contraste no modo escuro (v29) */
 [data-theme="dark"] .phraseEditor{background:#1e293b;color:#e2e8f0;border-color:#475569}
 [data-theme="dark"] .phraseEditor:focus{outline:2px solid var(--accent2)}
+/* [FIX-PASTE-COLOR] !important força a cor correta mesmo quando um trecho colado traz "color:#000"
+   embutido no HTML (Word, PDF, sites) — sem isso, esse estilo inline vence o CSS e fica ilegível no escuro. */
 [data-theme="dark"] [contenteditable="true"],
-[data-theme="dark"] .phraseEditor *{color:#e2e8f0}
+[data-theme="dark"] .phraseEditor *{color:#e2e8f0!important}
 [data-theme="dark"] .chipbar .label,
 [data-theme="dark"] .edit-section-title,
 [data-theme="dark"] .small{color:#cbd5e1}
@@ -435,7 +437,7 @@ const SEED=JSON.parse(document.getElementById('seed').textContent);
 const STORAGE_KEY='laudite-autotext-manager-v8-system-modalidade';
 const ORIGINAL=JSON.parse(JSON.stringify(SEED));
 // [CACHE-BUST] Versão embutida — deve refletir o <meta name="app-version">. Deve ser atualizada a cada release.
-const APP_VERSION='2026-11-07-v38';
+const APP_VERSION='2026-11-08-v39';
 
 // [ATLAS-MIGRATION-BEGIN] Estrutura do Atlas Radiológico: Seção → Sítio.
 // A modalidade (TC/RM/U.S./RX/MAMO) deixa de ser pasta e passa a ser tag.
@@ -1352,6 +1354,16 @@ function syncDetailResizeHandle(){
     syncDetailResizeHandle();
   }
 })();
+// [FIX-PASTE-COLOR] Ao colar no editor de Conteúdo, usa sempre texto puro — sem isso, HTML colado de
+// fora (Word, PDF, sites, etc.) traz estilos embutidos (ex.: "color:#000") que ficam presos no autotexto
+// e, no modo escuro, aparecem como texto preto ilegível em cima do fundo escuro.
+document.addEventListener('paste',(e)=>{
+  const ed=e.target && e.target.closest && e.target.closest('.phraseEditor');
+  if(!ed)return;
+  e.preventDefault();
+  const text=(e.clipboardData||window.clipboardData).getData('text/plain');
+  document.execCommand('insertText',false,text);
+});
 function renderAll(){renderTree();renderChips();renderTabs();updateMigrateBtn();renderList();if(selectedId||creatingNew)renderDetail();try{updateDetailOffset()}catch(e){}}
 
 // [SECTION-COLLAPSE] Recolher/expandir as seções "Conteúdo"/"Geral"/"Campos interativos" do painel de edição.
